@@ -1,0 +1,1603 @@
+<!DOCTYPE html>
+<!--
+================================================================================
+  PARVATI CLINIC — AI HEALTHCARE DASHBOARD
+  Complete Source Code (Single-File Full-Stack Application)
+================================================================================
+
+  TECH STACK:
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  FRONTEND   HTML5 · CSS3 · Vanilla JavaScript (ES2022)                 │
+  │  CHARTS     Chart.js v4.4.0 (CDN)                                      │
+  │  AI / LLM   Anthropic Claude API (claude-sonnet-4-20250514)            │
+  │             — Tab 1: AI Disease Predictor                               │
+  │             — Tab 5: Digital Twin Simulator                             │
+  │  DATA       Embedded JSON — 25,000 synthetic patient records           │
+  │             30 diseases · 28 symptoms · 4 ML model results             │
+  │  ML MODELS  Results from Python training (sklearn):                     │
+  │             Logistic Regression · Random Forest ·                       │
+  │             Gradient Boosting · Naive Bayes                             │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  TABS:
+    0 — Overview          Dataset stats, age/gender/disease charts
+    1 — AI Predictor      Claude AI disease prediction from symptoms
+    2 — Model Performance ML accuracy, precision, recall, F1 comparison
+    3 — Analytics         Top diseases, symptom frequency, heatmap
+    4 — Patient Queue     OPD queue management with priority tokens
+    5 — Digital Twin      Physiological simulation engine (NEW)
+
+  USAGE:
+    Open this .html file directly in any modern browser.
+    For AI features (Tab 1 & Tab 5), paste an Anthropic API key.
+    Tab 5 also works without a key using built-in Demo Mode.
+
+  PROJECT:  Final Year Engineering Project
+  AUTHOR:   Parvati Clinic Development Team
+================================================================================
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Parvati Clinic – AI Healthcare Dashboard</title>
+
+<!-- ── EXTERNAL DEPENDENCY: Chart.js (charts only, no data sent externally) ── -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     GLOBAL CSS
+     ════════════════════════════════════════════════════════════════════════ -->
+<style>
+/* ── Reset & Base ── */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+
+/* ── Scrollbars ── */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:#1e293b}
+::-webkit-scrollbar-thumb{background:#475569;border-radius:3px}
+
+/* ── Form elements ── */
+input,select{outline:none;font-family:inherit}
+input:focus,select:focus{border-color:#06b6d4!important;box-shadow:0 0 0 2px #06b6d433}
+button{font-family:inherit}
+
+/* ── Tab content visibility ── */
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+/* ── Shared layout cards ── */
+.card{background:#1e293b;border-radius:12px;padding:20px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+
+/* ── Shared UI atoms ── */
+.badge{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block}
+
+/* ── Symptom pill toggles ── */
+.pill{padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid #334155;background:transparent;color:#94a3b8;transition:all .15s}
+.pill.on{background:#06b6d4;color:#0f172a;border-color:#06b6d4;font-weight:700}
+.pill:hover:not(.on){border-color:#06b6d4;color:#06b6d4}
+
+/* ── Tables ── */
+table{width:100%;border-collapse:collapse}
+th{color:#06b6d4;padding:14px;text-align:left;font-size:12px;font-weight:700;background:#0f172a;white-space:nowrap}
+td{padding:12px 14px;border-bottom:1px solid #1e293b;font-size:13px}
+
+/* ── Form input field ── */
+.inp{width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 12px;color:#f1f5f9;font-size:14px}
+
+/* ── Primary gradient button ── */
+.btn-primary{background:linear-gradient(135deg,#06b6d4,#3b82f6);border:none;border-radius:8px;color:#fff;font-weight:700;cursor:pointer;padding:11px 18px;font-size:14px;transition:opacity .2s}
+.btn-primary:hover{opacity:.9}
+
+/* ── Small action buttons (queue table) ── */
+.btn-sm{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:none}
+
+/* ── Responsive breakpoint ── */
+@media(max-width:900px){.grid2,.grid3,.grid4{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     HEADER
+     ════════════════════════════════════════════════════════════════════════ -->
+<header style="background:linear-gradient(135deg,#1e3a5f,#0f2744);border-bottom:1px solid #1e40af;padding:0 24px">
+  <div style="max-width:1400px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:72px">
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#06b6d4,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:24px">🏥</div>
+      <div>
+        <div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:1px">PARVATI CLINIC</div>
+        <div style="font-size:12px;color:#94a3b8">AI-Powered Healthcare Dashboard</div>
+      </div>
+    </div>
+    <!-- Live clock — updated every second via JS -->
+    <div id="clock" style="background:#06b6d4;color:#0f172a;padding:8px 16px;border-radius:8px;font-weight:700;font-size:13px">🟢 Loading...</div>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     NAVIGATION TABS
+     ════════════════════════════════════════════════════════════════════════ -->
+<nav style="background:#1e293b;border-bottom:1px solid #334155;padding:0 24px;overflow-x:auto">
+  <div style="max-width:1400px;margin:0 auto;display:flex;gap:4px;min-width:fit-content">
+    <button class="nav-tab active" onclick="showTab(0,this)">🏠 Overview</button>
+    <button class="nav-tab" onclick="showTab(1,this)">🤖 AI Predictor</button>
+    <button class="nav-tab" onclick="showTab(2,this)">📊 Model Performance</button>
+    <button class="nav-tab" onclick="showTab(3,this)">📈 Analytics</button>
+    <button class="nav-tab" onclick="showTab(4,this)">📋 Patient Queue</button>
+    <button class="nav-tab" onclick="showTab(5,this)" style="color:#a78bfa;border-bottom:2px solid transparent">🧬 Digital Twin</button>
+  </div>
+</nav>
+<style>
+.nav-tab{padding:14px 18px;background:transparent;border:none;cursor:pointer;color:#64748b;font-weight:500;border-bottom:2px solid transparent;font-size:13px;white-space:nowrap;transition:all .2s;font-family:inherit}
+.nav-tab.active{color:#06b6d4;font-weight:700;border-bottom:2px solid #06b6d4}
+.nav-tab:hover:not(.active){color:#94a3b8}
+</style>
+
+<main style="max-width:1400px;margin:0 auto;padding:24px">
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     TAB 0 — OVERVIEW
+     Shows: KPI cards, age distribution bar chart, gender doughnut chart,
+            top-15 disease bar chart, top-10 symptom frequency cards.
+     ════════════════════════════════════════════════════════════════════════ -->
+<div id="tab0" class="tab-content active">
+  <h2 style="color:#f1f5f9;margin-bottom:20px;font-size:20px">📊 Dataset Overview — 25,000 Patient Records</h2>
+
+  <!-- KPI Cards -->
+  <div class="grid4" style="margin-bottom:28px">
+    <div class="card" style="border-left:4px solid #06b6d4"><div style="font-size:26px">👥</div><div style="font-size:28px;font-weight:800;color:#06b6d4;margin-top:4px">25,000</div><div style="color:#94a3b8;font-size:13px">Total Patients</div></div>
+    <div class="card" style="border-left:4px solid #10b981"><div style="font-size:26px">🦠</div><div style="font-size:28px;font-weight:800;color:#10b981;margin-top:4px">30</div><div style="color:#94a3b8;font-size:13px">Diseases Covered</div></div>
+    <div class="card" style="border-left:4px solid #f59e0b"><div style="font-size:26px">🩺</div><div style="font-size:28px;font-weight:800;color:#f59e0b;margin-top:4px">28</div><div style="color:#94a3b8;font-size:13px">Unique Symptoms</div></div>
+    <div class="card" style="border-left:4px solid #8b5cf6"><div style="font-size:26px">🤖</div><div style="font-size:28px;font-weight:800;color:#8b5cf6;margin-top:4px">4.02%</div><div style="color:#94a3b8;font-size:13px">Best ML Accuracy</div><div style="color:#64748b;font-size:11px;margin-top:2px">Logistic Regression</div></div>
+  </div>
+
+  <!-- Charts row -->
+  <div class="grid2" style="margin-bottom:20px">
+    <div class="card"><h3 style="color:#f1f5f9;margin-bottom:16px;font-size:15px">👤 Age Distribution</h3><canvas id="ageChart" height="200"></canvas></div>
+    <div class="card"><h3 style="color:#f1f5f9;margin-bottom:16px;font-size:15px">⚧ Gender Distribution</h3><canvas id="genderChart" height="200"></canvas></div>
+  </div>
+
+  <!-- Disease distribution -->
+  <div class="card" style="margin-bottom:20px">
+    <h3 style="color:#f1f5f9;margin-bottom:16px;font-size:15px">🦠 Disease Distribution (Top 15)</h3>
+    <canvas id="diseaseChart" height="120"></canvas>
+  </div>
+
+  <!-- Top symptom frequency cards -->
+  <div class="card">
+    <h3 style="color:#f1f5f9;margin-bottom:16px;font-size:15px">🩺 Top 10 Most Frequent Symptoms</h3>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px" id="symCards"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     TAB 1 — AI DISEASE PREDICTOR
+     Uses: Anthropic Claude API (claude-sonnet-4-20250514)
+     User selects age, gender, symptoms → Claude returns top-3 disease
+     predictions with confidence %, reasoning, and recommendation.
+     ════════════════════════════════════════════════════════════════════════ -->
+<div id="tab1" class="tab-content">
+  <div class="grid2">
+    <!-- Input panel -->
+    <div>
+      <h2 style="color:#f1f5f9;margin-bottom:20px;font-size:20px">🤖 AI Disease Predictor (Claude AI)</h2>
+
+      <!-- API key entry -->
+      <div style="background:#1e3a2f;border:1px solid #10b981;border-radius:12px;padding:16px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="color:#10b981;font-weight:700;font-size:13px">🔑 Anthropic API Key (Required)</span>
+          <button onclick="document.getElementById('keyBox').style.display=document.getElementById('keyBox').style.display==='none'?'block':'none'" style="background:transparent;border:1px solid #334155;border-radius:6px;color:#94a3b8;padding:3px 10px;cursor:pointer;font-size:11px;font-family:inherit">Toggle</button>
+        </div>
+        <div id="keyBox">
+          <input type="password" id="apiKey" placeholder="Paste your sk-ant-... key here" class="inp" style="margin-bottom:6px"/>
+        </div>
+        <div style="color:#64748b;font-size:11px">Get a free key at <strong style="color:#06b6d4">console.anthropic.com</strong></div>
+      </div>
+
+      <!-- Patient input form -->
+      <div class="card">
+        <div class="grid2" style="margin-bottom:16px">
+          <div><label style="color:#94a3b8;font-size:12px;margin-bottom:4px;display:block">Age</label><input type="number" id="pAge" placeholder="e.g. 45" class="inp"/></div>
+          <div><label style="color:#94a3b8;font-size:12px;margin-bottom:4px;display:block">Gender</label><select id="pGender" class="inp"><option>Male</option><option>Female</option><option>Other</option></select></div>
+        </div>
+        <label style="color:#94a3b8;font-size:12px;margin-bottom:8px;display:block">Symptoms (<span id="symCount">0</span> selected)</label>
+        <!-- Symptom pills — dynamically generated by JS buildPills() -->
+        <div id="symptomPills" style="display:flex;flex-wrap:wrap;gap:8px;max-height:200px;overflow-y:auto;padding:4px;margin-bottom:16px"></div>
+        <div id="aiErr" style="color:#ef4444;font-size:13px;margin-bottom:10px;display:none"></div>
+        <button class="btn-primary" onclick="predict()" id="predictBtn" style="width:100%;padding:14px;font-size:15px">🔍 Predict Disease with Claude AI</button>
+      </div>
+    </div>
+
+    <!-- Results panel (populated by predict() function) -->
+    <div>
+      <h2 style="color:#f1f5f9;margin-bottom:20px;font-size:20px">📋 Prediction Results</h2>
+      <div id="aiResult">
+        <div class="card" style="text-align:center;padding:48px">
+          <div style="font-size:52px;margin-bottom:12px">🩺</div>
+          <div style="color:#64748b;font-size:15px">Select symptoms and click Predict to get AI-powered disease predictions</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     TAB 2 — ML MODEL PERFORMANCE
+     Shows training results for 4 sklearn models:
+       • Logistic Regression (best at 4.02%)
+       • Random Forest
+       • Gradient Boosting
+       • Naive Bayes
+     Note: Low accuracy is expected — 30 diseases share only 28 symptoms
+           (random baseline ≈ 3.33%)
+     ════════════════════════════════════════════════════════════════════════ -->
+<div id="tab2" class="tab-content">
+  <h2 style="color:#f1f5f9;margin-bottom:8px;font-size:20px">📊 ML Model Training Results</h2>
+
+  <!-- Dataset note / disclaimer -->
+  <div style="background:#1e293b;border-radius:8px;padding:14px;border-left:4px solid #f59e0b;margin-bottom:24px;color:#94a3b8;font-size:13px">
+    ⚠ <strong style="color:#f59e0b">Dataset Note:</strong> 30 diseases share only 28 overlapping symptoms — creating inherent ambiguity (random baseline ≈ 3.33%). Models trained on 20,000 samples, tested on 5,000. The GenAI predictor uses contextual reasoning to overcome this.
+  </div>
+
+  <!-- Model metric bar panels -->
+  <div class="grid4" style="margin-bottom:24px">
+    <div class="card" style="border:2px solid #06b6d4"><div style="color:#06b6d4;font-weight:700;font-size:13px;margin-bottom:14px">📈 Logistic Regression</div><div id="lr_m"></div></div>
+    <div class="card" style="border:2px solid #10b981"><div style="color:#10b981;font-weight:700;font-size:13px;margin-bottom:14px">🌲 Random Forest</div><div id="rf_m"></div></div>
+    <div class="card" style="border:2px solid #f59e0b"><div style="color:#f59e0b;font-weight:700;font-size:13px;margin-bottom:14px">⚡ Gradient Boosting</div><div id="gb_m"></div></div>
+    <div class="card" style="border:2px solid #8b5cf6"><div style="color:#8b5cf6;font-weight:700;font-size:13px;margin-bottom:14px">📊 Naive Bayes</div><div id="nb_m"></div></div>
+  </div>
+
+  <!-- Accuracy & all-metrics charts -->
+  <div class="grid2" style="margin-bottom:20px">
+    <div class="card"><h3 style="color:#f1f5f9;margin-bottom:16px;font-size:15px">Accuracy Comparison</h3><canvas id="accChart" height="200"></canvas></div>
+    <div class="card"><h3 style="color:#f1f5f9;margin-bottom:16px;font-size:15px">All Metrics Comparison</h3><canvas id="allMetrics" height="200"></canvas></div>
+  </div>
+
+  <!-- Training config table -->
+  <div class="card" style="margin-bottom:20px">
+    <h3 style="color:#f1f5f9;margin-bottom:16px;font-size:15px">📋 Training Configuration</h3>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr)">
+      <div style="padding:12px 16px;border-bottom:1px solid #334155;border-right:1px solid #334155"><div style="color:#64748b;font-size:11px">Dataset</div><div style="color:#f1f5f9;font-weight:700;margin-top:2px">25,000 patients</div></div>
+      <div style="padding:12px 16px;border-bottom:1px solid #334155;border-right:1px solid #334155"><div style="color:#64748b;font-size:11px">Train / Test Split</div><div style="color:#f1f5f9;font-weight:700;margin-top:2px">80% / 20%</div></div>
+      <div style="padding:12px 16px;border-bottom:1px solid #334155;border-right:1px solid #334155"><div style="color:#64748b;font-size:11px">Feature Count</div><div style="color:#f1f5f9;font-weight:700;margin-top:2px">31 features</div></div>
+      <div style="padding:12px 16px;border-bottom:1px solid #334155"><div style="color:#64748b;font-size:11px">Target Classes</div><div style="color:#f1f5f9;font-weight:700;margin-top:2px">30 diseases</div></div>
+      <div style="padding:12px 16px;border-right:1px solid #334155"><div style="color:#64748b;font-size:11px">Training Samples</div><div style="color:#f1f5f9;font-weight:700;margin-top:2px">20,000</div></div>
+      <div style="padding:12px 16px;border-right:1px solid #334155"><div style="color:#64748b;font-size:11px">Test Samples</div><div style="color:#f1f5f9;font-weight:700;margin-top:2px">5,000</div></div>
+      <div style="padding:12px 16px;border-right:1px solid #334155"><div style="color:#64748b;font-size:11px">Random Baseline</div><div style="color:#f1f5f9;font-weight:700;margin-top:2px">~3.33%</div></div>
+      <div style="padding:12px 16px"><div style="color:#64748b;font-size:11px">Best Model</div><div style="color:#06b6d4;font-weight:700;margin-top:2px">Logistic Regression</div></div>
+    </div>
+  </div>
+
+  <!-- Model explanation cards -->
+  <div class="grid2">
+    <div class="card" style="border-left:3px solid #06b6d4"><div style="font-weight:700;color:#f1f5f9;margin-bottom:8px">📈 Logistic Regression</div><div style="color:#64748b;font-size:13px;line-height:1.6">Linear classifier using softmax for multiclass. Finds best hyperplane separating 30 disease classes. Top performer due to L2 regularization across 31 binary symptom features. max_iter=2000, C=1.</div></div>
+    <div class="card" style="border-left:3px solid #10b981"><div style="font-weight:700;color:#f1f5f9;margin-bottom:8px">🌲 Random Forest</div><div style="color:#64748b;font-size:13px;line-height:1.6">Ensemble of 300 decision trees using bootstrap aggregation. Reduces variance via majority voting. Limited by inherent symptom-disease ambiguity in the dataset. n_estimators=300.</div></div>
+    <div class="card" style="border-left:3px solid #f59e0b"><div style="font-weight:700;color:#f1f5f9;margin-bottom:8px">⚡ Gradient Boosting</div><div style="color:#64748b;font-size:13px;line-height:1.6">Sequential ensemble where each tree corrects previous residuals. learning_rate=0.1, n_estimators=100, subsample=0.8. Strong on structured tabular data but sensitive to noisy labels.</div></div>
+    <div class="card" style="border-left:3px solid #8b5cf6"><div style="font-weight:700;color:#f1f5f9;margin-bottom:8px">📊 Naive Bayes</div><div style="color:#64748b;font-size:13px;line-height:1.6">Multinomial NB (alpha=0.5) using Bayes' theorem with feature independence assumption. Fast training, naturally handles symptom frequency vectors well despite independence assumption.</div></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     TAB 3 — ANALYTICS
+     Shows: Top-10 disease line chart, symptom frequency horizontal bar,
+            Disease-Symptom association heatmap, all-30-disease bar chart
+     ════════════════════════════════════════════════════════════════════════ -->
+<div id="tab3" class="tab-content">
+  <h2 style="color:#f1f5f9;margin-bottom:20px;font-size:20px">📈 Advanced Analytics</h2>
+  <div class="grid2" style="margin-bottom:20px">
+    <div class="card"><h3 style="color:#f1f5f9;margin-bottom:16px;font-size:15px">Top 10 Diseases by Count</h3><canvas id="top10Chart" height="200"></canvas></div>
+    <div class="card"><h3 style="color:#f1f5f9;margin-bottom:16px;font-size:15px">Symptom Frequency</h3><canvas id="symFreqChart" height="200"></canvas></div>
+  </div>
+  <div class="card" style="margin-bottom:20px">
+    <h3 style="color:#f1f5f9;margin-bottom:16px;font-size:15px">🔥 Disease–Symptom Association Heatmap</h3>
+    <!-- Heatmap table generated dynamically by JS -->
+    <div style="overflow-x:auto" id="heatmap"></div>
+  </div>
+  <div class="card">
+    <h3 style="color:#f1f5f9;margin-bottom:16px;font-size:15px">All 30 Diseases — Full Distribution</h3>
+    <canvas id="allDisChart" height="120"></canvas>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     TAB 4 — PATIENT QUEUE (OPD MANAGEMENT)
+     Features:
+       • Add patient with name, age, gender, symptoms
+       • Auto-assign priority: Critical / High / Medium / Low
+       • Auto-generate token: C001, H001, M001, L001
+       • Queue auto-sorts by priority then token number
+       • Status transitions: Waiting → Consulting → Completed
+       • Estimated wait time shown for each patient
+     ════════════════════════════════════════════════════════════════════════ -->
+<div id="tab4" class="tab-content">
+  <h2 style="color:#f1f5f9;margin-bottom:20px;font-size:20px">📋 Interactive OPD Queue Management</h2>
+
+  <!-- Add patient form -->
+  <div class="card" style="margin-bottom:20px">
+    <h3 style="color:#f1f5f9;margin-bottom:16px;font-size:15px">➕ Add New Patient</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;margin-bottom:16px;align-items:end">
+      <div><label style="color:#94a3b8;font-size:12px;margin-bottom:4px;display:block">Patient Name</label><input type="text" id="qName" placeholder="Full name" class="inp"/></div>
+      <div><label style="color:#94a3b8;font-size:12px;margin-bottom:4px;display:block">Age</label><input type="number" id="qAge" placeholder="Age" class="inp"/></div>
+      <div><label style="color:#94a3b8;font-size:12px;margin-bottom:4px;display:block">Gender</label><select id="qGender" class="inp"><option>Male</option><option>Female</option><option>Other</option></select></div>
+      <button class="btn-primary" onclick="addPatient()">Add to Queue</button>
+    </div>
+    <label style="color:#94a3b8;font-size:12px;margin-bottom:8px;display:block">Symptoms (optional)</label>
+    <!-- Queue symptom pills — managed by toggleQSym() -->
+    <div id="queuePills" style="display:flex;flex-wrap:wrap;gap:8px;max-height:160px;overflow-y:auto;padding:4px"></div>
+    <div id="qMsg" style="margin-top:12px;font-weight:700;font-size:14px;display:none"></div>
+  </div>
+
+  <!-- Status counters -->
+  <div class="grid3" style="margin-bottom:20px">
+    <div class="card" style="text-align:center;border-bottom:4px solid #3b82f6"><div style="font-size:36px;font-weight:800;color:#3b82f6" id="cntW">0</div><div style="color:#94a3b8;font-size:14px">Waiting Patients</div></div>
+    <div class="card" style="text-align:center;border-bottom:4px solid #f59e0b"><div style="font-size:36px;font-weight:800;color:#f59e0b" id="cntC">0</div><div style="color:#94a3b8;font-size:14px">Currently Consulting</div></div>
+    <div class="card" style="text-align:center;border-bottom:4px solid #22c55e"><div style="font-size:36px;font-weight:800;color:#22c55e" id="cntD">0</div><div style="color:#94a3b8;font-size:14px">Completed Patients</div></div>
+  </div>
+
+  <!-- Token legend -->
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
+    <span style="color:#94a3b8;font-size:13px;font-weight:600">Token Format:</span>
+    <span style="background:#ef444422;color:#ef4444;border:1px solid #ef444455;padding:4px 12px;border-radius:8px;font-weight:800;font-size:12px">🚨 C001 — Critical</span>
+    <span style="background:#f9731622;color:#f97316;border:1px solid #f9731655;padding:4px 12px;border-radius:8px;font-weight:800;font-size:12px">⚠️ H001 — High</span>
+    <span style="background:#eab30822;color:#eab308;border:1px solid #eab30855;padding:4px 12px;border-radius:8px;font-weight:800;font-size:12px">🔔 M001 — Medium</span>
+    <span style="background:#22c55e22;color:#22c55e;border:1px solid #22c55e55;padding:4px 12px;border-radius:8px;font-weight:800;font-size:12px">✅ L001 — Low</span>
+    <span style="color:#64748b;font-size:12px;margin-left:4px">• Queue auto-sorts: Critical → High → Medium → Low</span>
+  </div>
+
+  <!-- Queue table (tbody populated by renderQueue()) -->
+  <div class="card" style="overflow-x:auto">
+    <table id="queueTable">
+      <thead><tr><th>Token</th><th>Patient Name</th><th>Age</th><th>Symptoms</th><th>Priority</th><th>Status</th><th>Est. Wait</th><th>Actions</th></tr></thead>
+      <tbody id="queueBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     TAB 5 — DIGITAL TWIN SIMULATOR  (NEW FEATURE)
+     Concept:
+       A Digital Twin is a virtual replica of a real patient's physiology.
+       It ingests demographics, symptoms, and vital signs to build a model,
+       then simulates future health trajectories under different scenarios.
+
+     Features:
+       • Pulls patients directly from the OPD Queue (Tab 4)
+       • Auto-fills baseline vitals based on symptoms
+       • 6 simulation scenarios (progression, treatment, stress, surgery,
+         lifestyle, medication)
+       • Renders: organ health, vital flags, 90-day timeline, AI narrative,
+         clinical recommendations, Chart.js trend projection
+       • Two modes: Claude AI (requires API key) / Demo (built-in engine)
+     ════════════════════════════════════════════════════════════════════════ -->
+<div id="tab5" class="tab-content">
+
+  <!-- Digital Twin specific CSS -->
+  <style>
+    .dt-panel{background:#1e293b;border-radius:12px;padding:20px}
+    .dt-stat{background:#0f172a;border-radius:10px;padding:14px;text-align:center}
+    .dt-vital{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#0f172a;border-radius:8px;margin-bottom:8px}
+    .dt-badge{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700}
+    .dt-timeline-item{display:flex;gap:12px;margin-bottom:14px;align-items:flex-start}
+    .dt-timeline-dot{width:10px;height:10px;border-radius:50%;margin-top:4px;flex-shrink:0}
+    /* Purple gradient button for Digital Twin actions */
+    .dt-twin-btn{background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:8px;color:#fff;font-weight:700;cursor:pointer;padding:10px 18px;font-size:13px;transition:opacity .2s;font-family:inherit}
+    .dt-twin-btn:hover{opacity:.88}
+    .dt-twin-btn:disabled{opacity:.5;cursor:not-allowed}
+    /* Organ health mini cards */
+    .organ-card{background:#0f172a;border-radius:10px;padding:14px;border:1px solid #334155;transition:border-color .2s}
+    .organ-card:hover{border-color:#7c3aed}
+    /* Pulse animation on main CTA button */
+    @keyframes pulse-twin{0%,100%{box-shadow:0 0 0 0 #7c3aed44}50%{box-shadow:0 0 0 8px #7c3aed00}}
+    .twin-live{animation:pulse-twin 2s infinite}
+    /* Spinner for loading state */
+    @keyframes spin-ring{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+    .spin{animation:spin-ring 1.2s linear infinite}
+  </style>
+
+  <!-- Page header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+    <div>
+      <h2 style="color:#f1f5f9;font-size:20px;margin-bottom:4px">🧬 Patient Digital Twin Simulator</h2>
+      <div style="color:#64748b;font-size:13px">Select a patient from the queue → generate their virtual physiological model → run AI-powered health simulations</div>
+    </div>
+    <div style="background:#2d1b69;border:1px solid #7c3aed55;border-radius:10px;padding:8px 16px;font-size:12px;color:#a78bfa;font-weight:700">🟣 DIGITAL TWIN ENGINE v1.0</div>
+  </div>
+
+  <!-- ── STEP 1: Patient selection ── -->
+  <div class="dt-panel" style="margin-bottom:20px;border-left:4px solid #7c3aed">
+    <h3 style="color:#a78bfa;font-size:14px;font-weight:700;margin-bottom:14px">STEP 1 — Select Patient to Twin</h3>
+    <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+      <!-- Dropdown auto-populated from patients[] array when tab opens -->
+      <div style="flex:1;min-width:200px">
+        <label style="color:#94a3b8;font-size:12px;margin-bottom:6px;display:block">Choose from Queue</label>
+        <select id="dtPatientSelect" class="inp" onchange="loadTwinPatient()">
+          <option value="">— Select a patient —</option>
+        </select>
+      </div>
+      <!-- Or manual entry -->
+      <div style="flex:1;min-width:200px">
+        <label style="color:#94a3b8;font-size:12px;margin-bottom:6px;display:block">Or enter custom name</label>
+        <input type="text" id="dtCustomName" placeholder="e.g. Meera Rao" class="inp"/>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div>
+          <label style="color:#94a3b8;font-size:12px;margin-bottom:6px;display:block">Age</label>
+          <input type="number" id="dtAge" placeholder="45" class="inp" style="width:80px"/>
+        </div>
+        <div>
+          <label style="color:#94a3b8;font-size:12px;margin-bottom:6px;display:block">Gender</label>
+          <select id="dtGender" class="inp" style="width:100px"><option>Male</option><option>Female</option><option>Other</option></select>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <label style="color:#94a3b8;font-size:12px;margin-bottom:8px;display:block">Active Symptoms</label>
+      <!-- Digital Twin symptom pills — managed by buildDtPills() / dtSelSyms -->
+      <div id="dtSymPills" style="display:flex;flex-wrap:wrap;gap:8px;max-height:140px;overflow-y:auto;padding:4px"></div>
+    </div>
+  </div>
+
+  <!-- ── STEP 2: Baseline vitals ── -->
+  <div class="dt-panel" style="margin-bottom:20px;border-left:4px solid #06b6d4">
+    <h3 style="color:#06b6d4;font-size:14px;font-weight:700;margin-bottom:14px">STEP 2 — Baseline Vitals (Auto-filled or Override)</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px">
+      <div><label style="color:#94a3b8;font-size:11px;margin-bottom:4px;display:block">❤️ Heart Rate (bpm)</label><input type="number" id="dtHR" placeholder="72" class="inp"/></div>
+      <div><label style="color:#94a3b8;font-size:11px;margin-bottom:4px;display:block">🩸 Systolic BP (mmHg)</label><input type="number" id="dtSBP" placeholder="120" class="inp"/></div>
+      <div><label style="color:#94a3b8;font-size:11px;margin-bottom:4px;display:block">🩸 Diastolic BP (mmHg)</label><input type="number" id="dtDBP" placeholder="80" class="inp"/></div>
+      <div><label style="color:#94a3b8;font-size:11px;margin-bottom:4px;display:block">🌡️ Temperature (°C)</label><input type="number" id="dtTemp" step="0.1" placeholder="37.0" class="inp"/></div>
+      <div><label style="color:#94a3b8;font-size:11px;margin-bottom:4px;display:block">🫁 SpO2 (%)</label><input type="number" id="dtSpO2" placeholder="98" class="inp"/></div>
+      <div><label style="color:#94a3b8;font-size:11px;margin-bottom:4px;display:block">🍬 Blood Glucose (mg/dL)</label><input type="number" id="dtGlucose" placeholder="95" class="inp"/></div>
+      <div><label style="color:#94a3b8;font-size:11px;margin-bottom:4px;display:block">⚖️ BMI</label><input type="number" id="dtBMI" step="0.1" placeholder="23.5" class="inp"/></div>
+      <div><label style="color:#94a3b8;font-size:11px;margin-bottom:4px;display:block">🔬 CRP (mg/L)</label><input type="number" id="dtCRP" step="0.1" placeholder="1.5" class="inp"/></div>
+    </div>
+  </div>
+
+  <!-- ── STEP 3: Scenario & run ── -->
+  <div class="dt-panel" style="margin-bottom:20px;border-left:4px solid #10b981">
+    <h3 style="color:#10b981;font-size:14px;font-weight:700;margin-bottom:14px">STEP 3 — Simulation Scenario</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">
+      <div>
+        <label style="color:#94a3b8;font-size:12px;margin-bottom:6px;display:block">Scenario Type</label>
+        <select id="dtScenario" class="inp">
+          <option value="progression">📈 Disease Progression (3 months)</option>
+          <option value="treatment">💊 Treatment Response Simulation</option>
+          <option value="stress">🏃 Physiological Stress Test</option>
+          <option value="surgery">🔪 Pre-Surgery Risk Assessment</option>
+          <option value="lifestyle">🥗 Lifestyle Intervention Impact</option>
+          <option value="medication">💉 Medication Interaction Check</option>
+        </select>
+      </div>
+      <div>
+        <label style="color:#94a3b8;font-size:12px;margin-bottom:6px;display:block">API Key (for Claude AI simulation)</label>
+        <input type="password" id="dtApiKey" placeholder="sk-ant-... (optional, uses demo mode if empty)" class="inp"/>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <button class="dt-twin-btn twin-live" id="dtRunBtn" onclick="runDigitalTwin()" style="min-width:200px">🧬 Generate Digital Twin</button>
+      <button onclick="loadDemoTwin()" style="background:transparent;border:1px solid #7c3aed;color:#a78bfa;border-radius:8px;padding:10px 18px;font-size:13px;cursor:pointer;font-family:inherit">⚡ Load Demo (No API Key)</button>
+      <button onclick="resetTwin()" style="background:transparent;border:1px solid #334155;color:#64748b;border-radius:8px;padding:10px 18px;font-size:13px;cursor:pointer;font-family:inherit">🔄 Reset</button>
+    </div>
+    <div id="dtError" style="color:#ef4444;font-size:13px;margin-top:10px;display:none"></div>
+  </div>
+
+  <!-- ── TWIN OUTPUT (hidden until simulation runs) ── -->
+  <div id="dtOutput" style="display:none">
+
+    <!-- Twin identity header bar -->
+    <div style="background:linear-gradient(135deg,#2d1b69,#1e1b4b);border-radius:12px;padding:20px;margin-bottom:20px;border:1px solid #7c3aed55;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div style="display:flex;align-items:center;gap:16px">
+        <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#06b6d4);display:flex;align-items:center;justify-content:center;font-size:28px">🧬</div>
+        <div>
+          <div id="dtTwinName" style="color:#fff;font-size:18px;font-weight:800"></div>
+          <div id="dtTwinMeta" style="color:#a78bfa;font-size:12px;margin-top:2px"></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap" id="dtRiskBadges"></div>
+    </div>
+
+    <!-- 4 KPI stat cards (risk score, LOS, readmission, recovery) -->
+    <div class="grid4" style="margin-bottom:20px" id="dtStatCards"></div>
+
+    <!-- Vitals status + Organ systems grid -->
+    <div class="grid2" style="margin-bottom:20px">
+      <div class="dt-panel">
+        <h3 style="color:#f1f5f9;font-size:14px;font-weight:700;margin-bottom:14px">📊 Live Vitals Status</h3>
+        <div id="dtVitalsDisplay"></div>
+      </div>
+      <div class="dt-panel">
+        <h3 style="color:#f1f5f9;font-size:14px;font-weight:700;margin-bottom:14px">🫀 Organ System Health</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="dtOrganGrid"></div>
+      </div>
+    </div>
+
+    <!-- Simulation timeline + AI clinical narrative -->
+    <div class="grid2" style="margin-bottom:20px">
+      <div class="dt-panel">
+        <h3 style="color:#f1f5f9;font-size:14px;font-weight:700;margin-bottom:14px">⏱️ Simulation Timeline</h3>
+        <div id="dtTimeline"></div>
+      </div>
+      <div class="dt-panel">
+        <h3 style="color:#f1f5f9;font-size:14px;font-weight:700;margin-bottom:14px">🤖 AI Clinical Narrative</h3>
+        <div id="dtNarrative" style="color:#94a3b8;font-size:13px;line-height:1.7"></div>
+      </div>
+    </div>
+
+    <!-- Clinical recommendations -->
+    <div class="dt-panel" style="margin-bottom:20px;border-left:4px solid #10b981">
+      <h3 style="color:#10b981;font-size:14px;font-weight:700;margin-bottom:14px">✅ Twin-Derived Clinical Recommendations</h3>
+      <div id="dtRecommendations" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
+    </div>
+
+    <!-- 90-day vital trend chart -->
+    <div class="dt-panel">
+      <h3 style="color:#f1f5f9;font-size:14px;font-weight:700;margin-bottom:14px">📈 Projected Vital Trends (90-Day Simulation)</h3>
+      <canvas id="dtTrendChart" height="120"></canvas>
+    </div>
+  </div>
+
+  <!-- Loading overlay (shown during API call or demo delay) -->
+  <div id="dtLoading" style="display:none;text-align:center;padding:60px">
+    <div style="font-size:48px;margin-bottom:16px">
+      <span style="display:inline-block" class="spin">⚙️</span>
+    </div>
+    <div style="color:#a78bfa;font-size:16px;font-weight:700">Building Digital Twin...</div>
+    <div style="color:#64748b;font-size:13px;margin-top:8px" id="dtLoadMsg">Initializing physiological model</div>
+  </div>
+
+</div><!-- /tab5 -->
+</main>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     FOOTER
+     ════════════════════════════════════════════════════════════════════════ -->
+<footer style="text-align:center;padding:20px 24px;color:#334155;font-size:12px;border-top:1px solid #1e293b;margin-top:40px">
+  Parvati Clinic AI Dashboard • Final Year Project • Chart.js + Claude AI + 4 ML Algorithms (LR · RF · GB · NB) • 25,000 Patients · 30 Diseases
+</footer>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     JAVASCRIPT — All application logic
+     Sections:
+       1. STATIC DATA         — Symptom/disease lists, ML results, counts
+       2. CHART HELPERS       — Shared Chart.js config objects
+       3. CLOCK               — Live clock interval
+       4. TAB NAVIGATION      — showTab() + Digital Twin hook
+       5. CHARTS              — All Chart.js chart initializations
+       6. HEATMAP             — Disease-Symptom association table
+       7. SYMPTOM PILLS       — Reusable pill builder for Tab1 & Tab4
+       8. AI PREDICTOR        — predict() → Anthropic API
+       9. QUEUE MANAGEMENT    — Token system, priority sort, renderQueue()
+      10. DIGITAL TWIN        — Full twin engine: UI, demo mode, API mode
+     ════════════════════════════════════════════════════════════════════════ -->
+<script>
+
+/* ══════════════════════════════════════════════════════════════════════════
+   1. STATIC DATA
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** All 28 symptom features used in the ML models and symptom selectors */
+const ALL_SYMPTOMS = [
+  "abdominal pain","anxiety","appetite loss","back pain","blurred vision",
+  "chest pain","cough","depression","diarrhea","dizziness","fatigue","fever",
+  "headache","insomnia","joint pain","muscle pain","nausea","rash","runny nose",
+  "shortness of breath","sneezing","sore throat","sweating","swelling",
+  "tremors","vomiting","weight gain","weight loss"
+];
+
+/** All 30 disease classes the ML models and Claude AI can predict */
+const ALL_DISEASES = [
+  "Allergy","Anemia","Anxiety","Arthritis","Asthma","Bronchitis","COVID-19",
+  "Chronic Kidney Disease","Common Cold","Dementia","Depression","Dermatitis",
+  "Diabetes","Epilepsy","Food Poisoning","Gastritis","Heart Disease",
+  "Hypertension","IBS","Influenza","Liver Disease","Migraine","Obesity",
+  "Parkinson's","Pneumonia","Sinusitis","Stroke","Thyroid Disorder",
+  "Tuberculosis","Ulcer"
+];
+
+/**
+ * Disease patient counts from the 25,000-record dataset.
+ * Used for bar/line charts on Tab 0 and Tab 3.
+ */
+const DISEASE_COUNTS = {
+  Anxiety:911, Arthritis:896, "Food Poisoning":871, Depression:859,
+  Allergy:858, Bronchitis:856, Dermatitis:856, "Thyroid Disorder":855,
+  Migraine:854, Diabetes:850, "COVID-19":839, Ulcer:833, Hypertension:833,
+  Epilepsy:832, "Liver Disease":830, IBS:830, Pneumonia:830, "Parkinson's":826,
+  Influenza:824, Dementia:823, Obesity:819, Tuberculosis:814, Anemia:814,
+  "Chronic Kidney Disease":807, "Common Cold":805, "Heart Disease":804,
+  Gastritis:804, Sinusitis:795, Stroke:790, Asthma:782
+};
+
+/**
+ * Top 10 symptom frequencies across the dataset.
+ * Shown as frequency cards on Tab 0.
+ */
+const SYM_FREQ = {
+  "appetite loss":4595, sneezing:4562, headache:4555, "muscle pain":4515,
+  anxiety:4506, depression:4497, fever:4496, "weight loss":4491,
+  swelling:4490, "sore throat":4487
+};
+
+/**
+ * ML model training results (accuracy, precision, recall, F1).
+ * All values in percentage. Trained with sklearn on 80/20 split.
+ * Low accuracy is expected — see Dataset Note in Tab 2.
+ */
+const MODEL_RESULTS = {
+  "Logistic Regression": { accuracy:4.02, precision:4.13, recall:4.02, f1:3.78, color:"#06b6d4" },
+  "Random Forest":       { accuracy:3.62, precision:3.61, recall:3.62, f1:3.61, color:"#10b981" },
+  "Gradient Boosting":   { accuracy:3.30, precision:3.25, recall:3.30, f1:3.25, color:"#f59e0b" },
+  "Naive Bayes":         { accuracy:3.74, precision:3.74, recall:3.74, f1:3.06, color:"#8b5cf6" }
+};
+
+/**
+ * Known disease→symptom associations for the heatmap.
+ * Subset of diseases with documented symptom clusters.
+ */
+const DISEASE_SYMPTOM_MAP = {
+  "Allergy":      ["sneezing","runny nose","rash","cough"],
+  "Asthma":       ["shortness of breath","cough","chest pain"],
+  "COVID-19":     ["fever","cough","shortness of breath","fatigue"],
+  "Common Cold":  ["runny nose","sneezing","sore throat","cough","headache"],
+  "Heart Disease":["chest pain","shortness of breath","fatigue","swelling"],
+  "Diabetes":     ["weight loss","blurred vision","fatigue"],
+  "Hypertension": ["headache","dizziness","blurred vision","chest pain"],
+  "Influenza":    ["fever","muscle pain","fatigue","cough","sore throat"],
+  "Migraine":     ["headache","nausea","blurred vision"],
+  "Pneumonia":    ["fever","cough","shortness of breath","chest pain"]
+};
+
+/* ══════════════════════════════════════════════════════════════════════════
+   2. CHART HELPERS (shared Chart.js style config)
+   ══════════════════════════════════════════════════════════════════════════ */
+const CTIP = { backgroundColor:"#0f172a", borderColor:"#334155", borderWidth:1, titleColor:"#f1f5f9", bodyColor:"#94a3b8" };
+const CLEG = { color:"#94a3b8", font:{ size:11 } };
+const CGRID = { color:"#334155" };
+
+/** Generate a hsl color for a given index (for multi-series charts) */
+function hsl(i, n=15) { return `hsl(${200 + i*(140/n)},70%,55%)`; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   3. LIVE CLOCK
+   ══════════════════════════════════════════════════════════════════════════ */
+setInterval(() => {
+  const n = new Date();
+  document.getElementById("clock").textContent = `🟢 ${n.toLocaleDateString()} ${n.toLocaleTimeString()}`;
+}, 1000);
+
+/* ══════════════════════════════════════════════════════════════════════════
+   4. TAB NAVIGATION
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * showTab(i, btn) — switches to tab i, highlights btn.
+ * Extended below to refresh Digital Twin patient dropdown on tab 5.
+ */
+function showTab(i, btn) {
+  document.querySelectorAll(".tab-content").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(".nav-tab").forEach(b => b.classList.remove("active"));
+  document.getElementById("tab" + i).classList.add("active");
+  btn.classList.add("active");
+  // When opening Digital Twin tab, sync queue patients to dropdown
+  if (i === 5) refreshDtDropdown();
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   5. CHART INITIALIZATIONS
+   All charts use Chart.js 4.4.0 (loaded from CDN)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+// Tab 0 — Age distribution bar chart
+new Chart(document.getElementById("ageChart"), {
+  type:"bar",
+  data:{labels:["<18","18-30","30-45","45-60","60+"],datasets:[{data:[5118,3337,4061,4216,8268],backgroundColor:"#06b6d4",borderRadius:6}]},
+  options:{responsive:true,plugins:{legend:{display:false},tooltip:CTIP},scales:{x:{ticks:{color:"#64748b"},grid:CGRID},y:{ticks:{color:"#64748b"},grid:CGRID}}}
+});
+
+// Tab 0 — Gender doughnut chart
+new Chart(document.getElementById("genderChart"), {
+  type:"doughnut",
+  data:{labels:["Other","Female","Male"],datasets:[{data:[8393,8336,8271],backgroundColor:["#8b5cf6","#ec4899","#06b6d4"],borderWidth:0,hoverOffset:8}]},
+  options:{responsive:true,plugins:{legend:{position:"bottom",labels:CLEG},tooltip:CTIP}}
+});
+
+// Tab 0 — Disease top-15 bar chart
+const t15 = Object.entries(DISEASE_COUNTS).sort((a,b) => b[1]-a[1]).slice(0,15);
+new Chart(document.getElementById("diseaseChart"), {
+  type:"bar",
+  data:{labels:t15.map(([n])=>n),datasets:[{data:t15.map(([,v])=>v),backgroundColor:t15.map((_,i)=>hsl(i)),borderRadius:4}]},
+  options:{responsive:true,plugins:{legend:{display:false},tooltip:CTIP},scales:{x:{ticks:{color:"#64748b",font:{size:10},maxRotation:35},grid:CGRID},y:{ticks:{color:"#64748b"},grid:CGRID}}}
+});
+
+// Tab 0 — Top-10 symptom frequency cards
+const sc = document.getElementById("symCards");
+Object.entries(SYM_FREQ).forEach(([s,c],i) => {
+  sc.innerHTML += `<div style="background:#0f172a;border-radius:8px;padding:12px;text-align:center">
+    <div style="font-size:20px;font-weight:800;color:hsl(${180+i*15},70%,55%)">${c.toLocaleString()}</div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:4px;text-transform:capitalize">${s}</div>
+  </div>`;
+});
+
+// Tab 2 — Model metric progress bars
+function mBar(label, val, color) {
+  return `<div style="margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+      <span style="color:#64748b;font-size:11px;text-transform:capitalize">${label}</span>
+      <span style="color:${color};font-weight:700;font-size:12px">${val}%</span>
+    </div>
+    <div style="height:4px;background:#334155;border-radius:2px">
+      <div style="height:100%;width:${val*20}%;background:${color};border-radius:2px"></div>
+    </div>
+  </div>`;
+}
+[["lr","Logistic Regression"],["rf","Random Forest"],["gb","Gradient Boosting"],["nb","Naive Bayes"]]
+  .forEach(([id,name]) => {
+    const m = MODEL_RESULTS[name];
+    document.getElementById(id+"_m").innerHTML = ["accuracy","precision","recall","f1"].map(k => mBar(k,m[k],m.color)).join("");
+  });
+
+// Tab 2 — Accuracy comparison bar chart
+const mNames = Object.keys(MODEL_RESULTS);
+new Chart(document.getElementById("accChart"), {
+  type:"bar",
+  data:{labels:mNames.map(n=>n.split(" ")[0]),datasets:[{label:"Accuracy %",data:mNames.map(n=>MODEL_RESULTS[n].accuracy),backgroundColor:mNames.map(n=>MODEL_RESULTS[n].color),borderRadius:6}]},
+  options:{responsive:true,plugins:{legend:{display:false},tooltip:CTIP},scales:{x:{ticks:{color:"#64748b"},grid:CGRID},y:{ticks:{color:"#64748b"},grid:CGRID,min:0,max:5}}}
+});
+
+// Tab 2 — All 4 metrics grouped bar chart
+new Chart(document.getElementById("allMetrics"), {
+  type:"bar",
+  data:{labels:mNames.map(n=>n.split(" ")[0]),datasets:[
+    {label:"Accuracy", data:mNames.map(n=>MODEL_RESULTS[n].accuracy), backgroundColor:"#06b6d4",borderRadius:3},
+    {label:"Precision",data:mNames.map(n=>MODEL_RESULTS[n].precision),backgroundColor:"#10b981",borderRadius:3},
+    {label:"Recall",   data:mNames.map(n=>MODEL_RESULTS[n].recall),   backgroundColor:"#f59e0b",borderRadius:3},
+    {label:"F1 Score", data:mNames.map(n=>MODEL_RESULTS[n].f1),       backgroundColor:"#8b5cf6",borderRadius:3}
+  ]},
+  options:{responsive:true,plugins:{legend:{labels:CLEG},tooltip:CTIP},scales:{x:{ticks:{color:"#64748b"},grid:CGRID},y:{ticks:{color:"#64748b"},grid:CGRID,min:0,max:5}}}
+});
+
+// Tab 3 — Top-10 disease line chart
+const tp10 = Object.entries(DISEASE_COUNTS).sort((a,b) => b[1]-a[1]).slice(0,10);
+new Chart(document.getElementById("top10Chart"), {
+  type:"line",
+  data:{labels:tp10.map(([n])=>n),datasets:[{data:tp10.map(([,v])=>v),borderColor:"#06b6d4",backgroundColor:"#06b6d420",fill:true,tension:0.4,pointBackgroundColor:"#06b6d4",pointRadius:5}]},
+  options:{responsive:true,plugins:{legend:{display:false},tooltip:CTIP},scales:{x:{ticks:{color:"#64748b",font:{size:10},maxRotation:30},grid:CGRID},y:{ticks:{color:"#64748b"},grid:CGRID}}}
+});
+
+// Tab 3 — Symptom frequency horizontal bar chart
+const sfE = Object.entries(SYM_FREQ).sort((a,b) => b[1]-a[1]);
+new Chart(document.getElementById("symFreqChart"), {
+  type:"bar",
+  data:{labels:sfE.map(([n])=>n),datasets:[{data:sfE.map(([,v])=>v),backgroundColor:sfE.map((_,i)=>`hsl(${180+i*15},70%,55%)`),borderRadius:4}]},
+  options:{indexAxis:"y",responsive:true,plugins:{legend:{display:false},tooltip:CTIP},scales:{x:{ticks:{color:"#64748b"},grid:CGRID},y:{ticks:{color:"#64748b",font:{size:11}},grid:CGRID}}}
+});
+
+// Tab 3 — All 30 diseases bar chart
+const allDE = Object.entries(DISEASE_COUNTS).sort((a,b) => b[1]-a[1]);
+new Chart(document.getElementById("allDisChart"), {
+  type:"bar",
+  data:{labels:allDE.map(([n])=>n),datasets:[{data:allDE.map(([,v])=>v),backgroundColor:allDE.map((_,i)=>`hsl(${190+i*5},65%,55%)`),borderRadius:3}]},
+  options:{responsive:true,plugins:{legend:{display:false},tooltip:CTIP},scales:{x:{ticks:{color:"#64748b",font:{size:9},maxRotation:40},grid:CGRID},y:{ticks:{color:"#64748b"},grid:CGRID}}}
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+   6. HEATMAP — Disease-Symptom Association (Tab 3)
+   Renders a colour-coded table: cyan = symptom associated with disease
+   ══════════════════════════════════════════════════════════════════════════ */
+const hmSyms = ALL_SYMPTOMS.slice(0, 16);
+let ht = `<table style="border-collapse:collapse;font-size:11px"><thead><tr>
+  <th style="color:#64748b;padding:6px 10px;text-align:left;min-width:130px;background:#0f172a;font-weight:600">Disease</th>`;
+hmSyms.forEach(s => {
+  ht += `<th style="color:#64748b;padding:2px;text-align:center;min-width:30px;writing-mode:vertical-rl;transform:rotate(180deg);height:80px;font-size:10px;background:#0f172a;font-weight:400">${s}</th>`;
+});
+ht += `</tr></thead><tbody>`;
+Object.entries(DISEASE_SYMPTOM_MAP).forEach(([d, ss]) => {
+  ht += `<tr><td style="color:#94a3b8;padding:5px 10px;font-weight:600;border-bottom:1px solid #0f172a">${d}</td>`;
+  hmSyms.forEach(sym => {
+    const has = ss.includes(sym);
+    ht += `<td style="padding:3px;text-align:center;border-bottom:1px solid #0f172a">
+      <div style="width:24px;height:24px;margin:0 auto;border-radius:3px;background:${has?"#06b6d4":"#334155"};opacity:${has?1:0.3}"></div>
+    </td>`;
+  });
+  ht += `</tr>`;
+});
+document.getElementById("heatmap").innerHTML = ht + `</tbody></table>
+  <div style="color:#64748b;font-size:11px;margin-top:8px">🔵 Cyan = symptom associated with disease</div>`;
+
+/* ══════════════════════════════════════════════════════════════════════════
+   7. SYMPTOM PILLS
+   Reusable pill-toggle builder used by Tab 1 (predictor) and Tab 4 (queue)
+   ══════════════════════════════════════════════════════════════════════════ */
+let selSyms = [];    // selected symptoms for AI Predictor (Tab 1)
+let selQSyms = [];   // selected symptoms for Queue entry (Tab 4)
+
+/**
+ * buildPills(cid, arr, fn)
+ * @param {string} cid   — container element ID
+ * @param {string[]} arr — currently selected symptoms array
+ * @param {Function} fn  — toggle callback for each pill
+ */
+function buildPills(cid, arr, fn) {
+  const c = document.getElementById(cid);
+  c.innerHTML = "";
+  ALL_SYMPTOMS.forEach(s => {
+    const b = document.createElement("button");
+    b.className = "pill" + (arr.includes(s) ? " on" : "");
+    b.textContent = s;
+    b.onclick = () => fn(s);
+    c.appendChild(b);
+  });
+}
+
+function toggleSym(s) {
+  selSyms = selSyms.includes(s) ? selSyms.filter(x=>x!==s) : [...selSyms, s];
+  document.getElementById("symCount").textContent = selSyms.length;
+  buildPills("symptomPills", selSyms, toggleSym);
+}
+
+function toggleQSym(s) {
+  selQSyms = selQSyms.includes(s) ? selQSyms.filter(x=>x!==s) : [...selQSyms, s];
+  buildPills("queuePills", selQSyms, toggleQSym);
+}
+
+// Initialize both pill containers on load
+buildPills("symptomPills", selSyms, toggleSym);
+buildPills("queuePills", selQSyms, toggleQSym);
+
+/* ══════════════════════════════════════════════════════════════════════════
+   8. AI DISEASE PREDICTOR  (Tab 1)
+   Calls Anthropic Claude API with patient data → returns JSON with:
+     predictions[]: [{disease, confidence%, reasoning}]
+     recommendation: string
+     severity: Low | Medium | High | Critical
+   ══════════════════════════════════════════════════════════════════════════ */
+async function predict() {
+  const key = document.getElementById("apiKey").value.trim();
+  const errEl = document.getElementById("aiErr");
+  const resEl = document.getElementById("aiResult");
+  errEl.style.display = "none";
+
+  if (selSyms.length === 0) {
+    errEl.textContent = "⚠ Please select at least one symptom.";
+    errEl.style.display = "block";
+    return;
+  }
+  if (!key) {
+    errEl.textContent = "⚠ Please enter your Anthropic API key in the green box above.";
+    errEl.style.display = "block";
+    document.getElementById("keyBox").style.display = "block";
+    return;
+  }
+
+  const btn = document.getElementById("predictBtn");
+  btn.textContent = "🔄 Analyzing...";
+  btn.disabled = true;
+  resEl.innerHTML = `<div class="card" style="text-align:center;padding:48px"><div style="font-size:40px;margin-bottom:12px">⚙️</div><div style="color:#06b6d4;font-size:15px;font-weight:700">Claude AI is analyzing your symptoms...</div></div>`;
+
+  const prompt = `You are a medical AI assistant. Patient: Age ${document.getElementById("pAge").value||"unknown"}, Gender ${document.getElementById("pGender").value}, Symptoms: ${selSyms.join(", ")}.
+Predict top 3 diseases from: ${ALL_DISEASES.join(", ")}.
+Respond ONLY with valid JSON (absolutely no markdown, no backticks, no extra text):
+{"predictions":[{"disease":"...","confidence":85,"reasoning":"short reason"},{"disease":"...","confidence":60,"reasoning":"short reason"},{"disease":"...","confidence":40,"reasoning":"short reason"}],"recommendation":"brief medical advice","severity":"Low"}`;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 800,
+        messages: [{ role:"user", content:prompt }]
+      })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+
+    const text = data.content?.map(b => b.text||"").join("") || "";
+    const parsed = JSON.parse(text.replace(/```json|```/g,"").trim());
+    const sColor = parsed.severity==="Critical"?"#ef4444":parsed.severity==="High"?"#f97316":parsed.severity==="Medium"?"#eab308":"#22c55e";
+
+    let html = `<div class="card" style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <span style="color:#f1f5f9;font-weight:700;font-size:15px">Top Disease Predictions</span>
+        <span class="badge" style="background:${sColor};color:#fff">${parsed.severity} Severity</span>
+      </div>`;
+
+    (parsed.predictions||[]).forEach((p, i) => {
+      const m = i===0?"🥇":i===1?"🥈":"🥉";
+      const bc = `hsl(${200-i*30},70%,55%)`;
+      html += `<div style="margin-bottom:18px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span style="color:#f1f5f9;font-weight:600;font-size:15px">${m} ${p.disease}</span>
+          <span style="color:#06b6d4;font-weight:700;font-size:15px">${p.confidence}%</span>
+        </div>
+        <div style="height:10px;background:#334155;border-radius:5px;overflow:hidden;margin-bottom:6px">
+          <div style="height:100%;width:${p.confidence}%;background:${bc};border-radius:5px"></div>
+        </div>
+        <div style="color:#64748b;font-size:12px;line-height:1.5">${p.reasoning}</div>
+      </div>`;
+    });
+
+    html += `</div>
+      <div class="card" style="border-left:4px solid #10b981;margin-bottom:12px">
+        <div style="color:#10b981;font-weight:700;margin-bottom:8px;font-size:13px">💊 AI Recommendation</div>
+        <div style="color:#94a3b8;font-size:14px;line-height:1.6">${parsed.recommendation}</div>
+      </div>
+      <div class="card" style="border-left:4px solid #f59e0b">
+        <div style="color:#f59e0b;font-size:12px;font-weight:700">⚠ Medical Disclaimer</div>
+        <div style="color:#64748b;font-size:12px;margin-top:4px">For educational/research purposes only. Always consult a qualified medical professional for diagnosis and treatment.</div>
+      </div>`;
+
+    resEl.innerHTML = html;
+
+  } catch (e) {
+    errEl.textContent = "❌ Error: " + e.message;
+    errEl.style.display = "block";
+    resEl.innerHTML = `<div class="card" style="text-align:center;padding:48px"><div style="font-size:52px;margin-bottom:12px">🩺</div><div style="color:#64748b">Select symptoms and try again.</div></div>`;
+  }
+
+  btn.textContent = "🔍 Predict Disease with Claude AI";
+  btn.disabled = false;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   9. QUEUE MANAGEMENT SYSTEM  (Tab 4)
+
+   Priority system:
+     Critical — chest pain / shortness of breath / blurred vision / tremors
+                OR age > 70
+     High     — fever / dizziness / sweating / vomiting / nausea
+                OR age > 60
+     Medium   — 3+ symptoms
+     Low      — everything else
+
+   Token format:  C001 (Critical), H001 (High), M001 (Medium), L001 (Low)
+   Sort order:    Critical → High → Medium → Low, then by token number
+
+   Wait time formula: base_minutes + (queue_position × 8 minutes)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+// Priority → display color mapping
+const PC = { Critical:"#ef4444", High:"#f97316", Medium:"#eab308", Low:"#22c55e" };
+// Status → display color mapping
+const SC = { Waiting:"#3b82f6", Consulting:"#f59e0b", Completed:"#22c55e" };
+// Priority → sort weight (lower = first)
+const PRIORITY_ORDER = { Critical:1, High:2, Medium:3, Low:4 };
+// Priority → token letter prefix
+const TOKEN_PREFIX = { Critical:"C", High:"H", Medium:"M", Low:"L" };
+// Auto-incrementing counters per priority tier
+const TOKEN_COUNTERS = { Critical:1, High:1, Medium:1, Low:1 };
+// Priority → icon
+const TOKEN_ICON = { Critical:"🚨", High:"⚠️", Medium:"🔔", Low:"✅" };
+// Base wait time (minutes) per priority level
+const WAIT_MINS = { Critical:0, High:10, Medium:20, Low:35 };
+
+/**
+ * Determine patient priority based on symptoms and age.
+ * @returns {"Critical"|"High"|"Medium"|"Low"}
+ */
+function getPriority(syms, age) {
+  if (syms.some(s => ["chest pain","shortness of breath","blurred vision","tremors"].includes(s)) || age > 70)
+    return "Critical";
+  if (syms.some(s => ["fever","dizziness","sweating","vomiting","nausea"].includes(s)) || age > 60)
+    return "High";
+  if (syms.length >= 3) return "Medium";
+  return "Low";
+}
+
+/**
+ * Generate and return a unique token string like "C003".
+ * Increments the counter for that priority tier.
+ */
+function generateToken(priority) {
+  const num = String(TOKEN_COUNTERS[priority]).padStart(3,"0");
+  TOKEN_COUNTERS[priority]++;
+  return TOKEN_PREFIX[priority] + num;
+}
+
+/**
+ * Calculate estimated wait time string for a patient.
+ * @param {Object} p              — patient object
+ * @param {Object[]} sortedWaiting — sorted waiting-only list (for rank calc)
+ */
+function getEstWait(p, sortedWaiting) {
+  if (p.status === "Consulting") return "🟡 In Progress";
+  if (p.status === "Completed")  return "✅ Done";
+  const rank = sortedWaiting.findIndex(x => x.id === p.id);
+  const base = WAIT_MINS[getPriority(p.symptoms, p.age)];
+  const totalWait = base + (rank * 8);
+  if (totalWait === 0) return "⚡ Immediate";
+  return `~${totalWait} min`;
+}
+
+/** Patient data array — demo patients pre-loaded on startup */
+let patients = [
+  { id:1, name:"Ravi Kumar",   age:58, gender:"Male",   symptoms:["chest pain","shortness of breath"], status:"Waiting",    token:"C001" },
+  { id:2, name:"Priya Sharma", age:34, gender:"Female", symptoms:["fever","cough","fatigue"],           status:"Consulting", token:"H001" },
+  { id:3, name:"Arjun Mehta",  age:72, gender:"Male",   symptoms:["tremors","dizziness"],               status:"Waiting",    token:"C002" },
+  { id:4, name:"Sunita Devi",  age:28, gender:"Female", symptoms:["headache","nausea","rash"],          status:"Waiting",    token:"M001" },
+  { id:5, name:"Kiran Patel",  age:45, gender:"Male",   symptoms:["cough"],                             status:"Waiting",    token:"L001" },
+];
+// Sync token counters to match pre-loaded demo data
+TOKEN_COUNTERS.Critical = 3;
+TOKEN_COUNTERS.High     = 2;
+TOKEN_COUNTERS.Medium   = 2;
+TOKEN_COUNTERS.Low      = 2;
+
+/** Sort patient list by priority then token (alphabetical = numeric within tier) */
+function sortPatients(list) {
+  return [...list].sort((a, b) => {
+    const pa = getPriority(a.symptoms, a.age);
+    const pb = getPriority(b.symptoms, b.age);
+    if (PRIORITY_ORDER[pa] !== PRIORITY_ORDER[pb])
+      return PRIORITY_ORDER[pa] - PRIORITY_ORDER[pb];
+    return a.token.localeCompare(b.token);
+  });
+}
+
+/** Re-render the entire queue table and update status counters */
+function renderQueue() {
+  document.getElementById("cntW").textContent = patients.filter(p => p.status === "Waiting").length;
+  document.getElementById("cntC").textContent = patients.filter(p => p.status === "Consulting").length;
+  document.getElementById("cntD").textContent = patients.filter(p => p.status === "Completed").length;
+
+  const body = document.getElementById("queueBody");
+  if (!patients.length) {
+    body.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:40px;color:#64748b">No patients in queue</td></tr>`;
+    return;
+  }
+
+  const sorted = sortPatients(patients);
+  const sortedWaiting = sorted.filter(p => p.status === "Waiting");
+
+  body.innerHTML = sorted.map(p => {
+    const pr = getPriority(p.symptoms, p.age);
+    const pc = PC[pr], sc2 = SC[p.status];
+    const w = getEstWait(p, sortedWaiting);
+    const st = p.symptoms.slice(0,3).join(", ") + (p.symptoms.length > 3 ? ` +${p.symptoms.length-3}` : "");
+    const isTop = p.status === "Waiting" && sortedWaiting[0]?.id === p.id;
+    const rowBg = isTop ? "background:#1e3a2f;" : "";
+    const tokenStyle = `background:${pc}22;color:${pc};border:1px solid ${pc}55;padding:5px 10px;border-radius:8px;font-weight:800;font-size:13px;letter-spacing:1px;display:inline-block`;
+
+    return `<tr style="${rowBg}">
+      <td><span style="${tokenStyle}">${TOKEN_ICON[pr]} ${p.token}</span></td>
+      <td style="color:#f1f5f9;font-weight:600">${p.name}${isTop?` <span style="background:#10b981;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px">NEXT</span>`:""}</td>
+      <td style="color:#94a3b8">${p.age}</td>
+      <td style="color:#94a3b8;font-size:12px">${st||"—"}</td>
+      <td><span class="badge" style="background:${pc}33;color:${pc}">${pr}</span></td>
+      <td><span class="badge" style="background:${sc2}20;color:${sc2}">${p.status}</span></td>
+      <td style="color:#94a3b8;font-size:12px">${w}</td>
+      <td><div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${p.status!=="Consulting"?`<button class="btn-sm" style="background:#f59e0b;color:#fff" onclick="setSt(${p.id},'Consulting')">Consult</button>`:""}
+        ${p.status!=="Completed" ?`<button class="btn-sm" style="background:#22c55e;color:#fff" onclick="setSt(${p.id},'Completed')">Done</button>`:""}
+        <button class="btn-sm" style="background:transparent;border:1px solid #ef4444;color:#ef4444" onclick="rmP(${p.id})">Remove</button>
+      </div></td>
+    </tr>`;
+  }).join("");
+}
+
+/** Change a patient's status and re-render */
+function setSt(id, s) {
+  patients = patients.map(p => p.id === id ? { ...p, status:s } : p);
+  renderQueue();
+}
+
+/** Remove a patient from the queue and re-render */
+function rmP(id) {
+  patients = patients.filter(p => p.id !== id);
+  renderQueue();
+}
+
+/** Add a new patient from the form inputs */
+function addPatient() {
+  const name   = document.getElementById("qName").value.trim();
+  const age    = parseInt(document.getElementById("qAge").value);
+  const gender = document.getElementById("qGender").value;
+  const msg    = document.getElementById("qMsg");
+
+  if (!name || !age) {
+    msg.textContent = "❌ Please fill in Name and Age.";
+    msg.style.color = "#ef4444";
+    msg.style.display = "block";
+    setTimeout(() => msg.style.display = "none", 3000);
+    return;
+  }
+
+  const priority = getPriority(selQSyms, age);
+  const token    = generateToken(priority);
+  const pc       = PC[priority];
+
+  patients.push({ id:Date.now(), name, age, gender, symptoms:[...selQSyms], status:"Waiting", token });
+
+  msg.innerHTML = `✅ Token <span style="color:${pc};font-weight:800">${TOKEN_ICON[priority]} ${token}</span> assigned to <strong>${name}</strong> — Priority: <span style="color:${pc}">${priority}</span>`;
+  msg.style.color = "#10b981";
+  msg.style.display = "block";
+  setTimeout(() => msg.style.display = "none", 5000);
+
+  // Reset form
+  document.getElementById("qName").value = "";
+  document.getElementById("qAge").value  = "";
+  selQSyms = [];
+  buildPills("queuePills", selQSyms, toggleQSym);
+  renderQueue();
+}
+
+// Initial queue render on page load
+renderQueue();
+
+/* ══════════════════════════════════════════════════════════════════════════
+   10. DIGITAL TWIN ENGINE  (Tab 5)
+
+   Architecture:
+     a) dtSelSyms[]       — Selected symptom state for twin form
+     b) buildDtPills()    — Builds symptom pills for the twin tab
+     c) refreshDtDropdown() — Syncs patients[] into the queue dropdown
+     d) loadTwinPatient() — Auto-fills form from selected queue patient
+     e) autofillVitals()  — Estimates baseline vitals from symptoms/age
+     f) runDigitalTwin()  — Orchestrates API call OR demo mode
+     g) generateDemoTwin()— Deterministic twin model from raw inputs
+     h) renderTwin()      — Renders all output sections + Chart.js trend
+     i) loadDemoTwin()    — Pre-fills Ravi Kumar demo and runs twin
+     j) resetTwin()       — Hides output and error panels
+
+   API interaction (when key provided):
+     Sends a structured prompt to claude-sonnet-4-20250514 asking for a
+     JSON twin model. Parses and renders the response.
+
+   Demo mode (no API key):
+     generateDemoTwin() computes organ health scores, vital flags,
+     timeline events, narrative, and recommendations deterministically
+     from symptom vectors and vital inputs.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** Selected symptoms for the Digital Twin tab (separate from Tab 1 & Tab 4) */
+let dtSelSyms = [];
+
+/** Build symptom pill buttons inside the Digital Twin tab */
+function buildDtPills() {
+  const c = document.getElementById("dtSymPills");
+  c.innerHTML = "";
+  ALL_SYMPTOMS.forEach(s => {
+    const b = document.createElement("button");
+    b.className = "pill" + (dtSelSyms.includes(s) ? " on" : "");
+    b.textContent = s;
+    b.onclick = () => {
+      dtSelSyms = dtSelSyms.includes(s) ? dtSelSyms.filter(x => x !== s) : [...dtSelSyms, s];
+      buildDtPills();
+    };
+    c.appendChild(b);
+  });
+}
+buildDtPills();
+
+/**
+ * Populate the patient dropdown in Digital Twin from the live queue.
+ * Called every time Tab 5 is opened (via showTab hook).
+ */
+function refreshDtDropdown() {
+  const sel = document.getElementById("dtPatientSelect");
+  sel.innerHTML = '<option value="">— Select a patient —</option>';
+  patients.forEach(p => {
+    const o = document.createElement("option");
+    o.value = p.id;
+    o.textContent = `${p.token} — ${p.name} (${p.age}y, ${p.gender})`;
+    sel.appendChild(o);
+  });
+}
+
+/**
+ * Auto-fill the Digital Twin form when a queue patient is selected.
+ * Copies name, age, gender, symptoms and estimates vitals.
+ */
+function loadTwinPatient() {
+  const id = parseInt(document.getElementById("dtPatientSelect").value);
+  if (!id) return;
+  const p = patients.find(x => x.id === id);
+  if (!p) return;
+
+  document.getElementById("dtCustomName").value = p.name;
+  document.getElementById("dtAge").value         = p.age;
+  document.getElementById("dtGender").value      = p.gender;
+  dtSelSyms = [...p.symptoms];
+  buildDtPills();
+  autofillVitals(p.symptoms, p.age);
+}
+
+/**
+ * Estimate reasonable baseline vital values from symptoms and age.
+ * These are heuristic approximations for the simulation — not clinical data.
+ */
+function autofillVitals(syms, age) {
+  const hasFever  = syms.includes("fever");
+  const hasChest  = syms.includes("chest pain") || syms.includes("shortness of breath");
+  const hasDiz    = syms.includes("dizziness");
+
+  document.getElementById("dtHR").value      = hasChest ? 98 : hasFever ? 104 : 72;
+  document.getElementById("dtSBP").value     = hasChest ? 145 : hasDiz ? 90 : 120;
+  document.getElementById("dtDBP").value     = hasChest ? 95 : hasDiz ? 60 : 80;
+  document.getElementById("dtTemp").value    = hasFever ? 38.8 : 37.0;
+  document.getElementById("dtSpO2").value    = syms.includes("shortness of breath") ? 91 : 98;
+  document.getElementById("dtGlucose").value = age > 55 ? 115 : 95;
+  document.getElementById("dtBMI").value     = syms.includes("weight gain") ? 28.4 : syms.includes("weight loss") ? 19.2 : 23.5;
+  document.getElementById("dtCRP").value     = hasFever ? 12.4 : hasChest ? 6.1 : 1.5;
+}
+
+/** Hide twin output and clear error state */
+function resetTwin() {
+  document.getElementById("dtOutput").style.display  = "none";
+  document.getElementById("dtLoading").style.display = "none";
+  document.getElementById("dtError").style.display   = "none";
+}
+
+/**
+ * Main Digital Twin runner.
+ * Reads all form inputs, shows loading state, then either:
+ *   — calls Claude API (if API key present), or
+ *   — calls generateDemoTwin() (demo mode, no key needed)
+ * Then calls renderTwin() with the result.
+ */
+async function runDigitalTwin() {
+  // Collect all form values
+  const name     = document.getElementById("dtCustomName").value.trim() || "Unknown Patient";
+  const age      = parseInt(document.getElementById("dtAge").value) || 45;
+  const gender   = document.getElementById("dtGender").value;
+  const scenario = document.getElementById("dtScenario").value;
+  const apiKey   = document.getElementById("dtApiKey").value.trim();
+  const hr       = document.getElementById("dtHR").value      || 72;
+  const sbp      = document.getElementById("dtSBP").value     || 120;
+  const dbp      = document.getElementById("dtDBP").value     || 80;
+  const temp     = document.getElementById("dtTemp").value    || 37.0;
+  const spo2     = document.getElementById("dtSpO2").value    || 98;
+  const glucose  = document.getElementById("dtGlucose").value || 95;
+  const bmi      = document.getElementById("dtBMI").value     || 23.5;
+  const crp      = document.getElementById("dtCRP").value     || 1.5;
+  const syms     = dtSelSyms.length ? dtSelSyms : ["fatigue","headache"];
+
+  // Reset & show loading
+  document.getElementById("dtError").style.display  = "none";
+  document.getElementById("dtOutput").style.display = "none";
+  document.getElementById("dtLoading").style.display = "block";
+
+  // Cycle through loading status messages
+  const loadMsgs = [
+    "Initializing physiological model...",
+    "Mapping organ systems...",
+    "Calibrating vital baselines...",
+    "Running scenario simulation...",
+    "Generating clinical narrative..."
+  ];
+  let mi = 0;
+  const loadInterval = setInterval(() => {
+    document.getElementById("dtLoadMsg").textContent = loadMsgs[mi++ % loadMsgs.length];
+  }, 900);
+
+  const scenarioLabels = {
+    progression: "Disease Progression (3-month)",
+    treatment:   "Treatment Response",
+    stress:      "Physiological Stress Test",
+    surgery:     "Pre-Surgery Risk",
+    lifestyle:   "Lifestyle Intervention",
+    medication:  "Medication Interaction"
+  };
+
+  let twinData = null;
+
+  if (apiKey) {
+    // ── API MODE: ask Claude to build the twin ──
+    try {
+      const prompt = `You are a clinical digital twin engine. Generate a detailed physiological simulation for:
+Patient: ${name}, Age: ${age}, Gender: ${gender}
+Symptoms: ${syms.join(", ")}
+Vitals: HR=${hr}bpm, BP=${sbp}/${dbp}mmHg, Temp=${temp}°C, SpO2=${spo2}%, Glucose=${glucose}mg/dL, BMI=${bmi}, CRP=${crp}mg/L
+Scenario: ${scenarioLabels[scenario]}
+
+Respond ONLY with valid JSON (no markdown, no backticks):
+{
+  "overallRisk": "Low|Moderate|High|Critical",
+  "primaryCondition": "...",
+  "organSystems": [
+    {"name": "Cardiovascular", "health": 85, "status": "Normal|Borderline|Stressed|Critical", "icon": "❤️"},
+    {"name": "Respiratory",    "health": 92, "status": "Normal", "icon": "🫁"},
+    {"name": "Neurological",   "health": 88, "status": "Normal", "icon": "🧠"},
+    {"name": "Hepatic",        "health": 90, "status": "Normal", "icon": "🫀"},
+    {"name": "Renal",          "health": 87, "status": "Normal", "icon": "🫘"},
+    {"name": "Immune",         "health": 75, "status": "Borderline", "icon": "🛡️"}
+  ],
+  "vitalStatus": [
+    {"label": "Heart Rate",      "value": "${hr} bpm",          "flag": "Normal|High|Low|Critical"},
+    {"label": "Blood Pressure",  "value": "${sbp}/${dbp} mmHg", "flag": "Normal|High|Low|Critical"},
+    {"label": "Temperature",     "value": "${temp}°C",          "flag": "Normal|High|Low|Critical"},
+    {"label": "SpO2",            "value": "${spo2}%",           "flag": "Normal|High|Low|Critical"},
+    {"label": "Blood Glucose",   "value": "${glucose} mg/dL",   "flag": "Normal|High|Low|Critical"},
+    {"label": "CRP",             "value": "${crp} mg/L",        "flag": "Normal|High|Low|Critical"}
+  ],
+  "timeline": [
+    {"day": "Day 0",  "event": "Baseline assessment", "severity": "info"},
+    {"day": "Day 14", "event": "...", "severity": "warning|info|danger|success"},
+    {"day": "Day 30", "event": "...", "severity": "..."},
+    {"day": "Day 60", "event": "...", "severity": "..."},
+    {"day": "Day 90", "event": "...", "severity": "..."}
+  ],
+  "narrative": "3-4 sentence clinical narrative about this patient's digital twin simulation, findings, and projected trajectory.",
+  "recommendations": [
+    "Recommendation 1 — specific clinical action",
+    "Recommendation 2 — specific clinical action",
+    "Recommendation 3 — specific clinical action",
+    "Recommendation 4 — specific clinical action"
+  ],
+  "projectedTrends": {
+    "labels":     ["Day 0","Day 15","Day 30","Day 45","Day 60","Day 75","Day 90"],
+    "heartRate":  [${hr},0,0,0,0,0,0],
+    "systolicBP": [${sbp},0,0,0,0,0,0],
+    "spo2":       [${spo2},0,0,0,0,0,0]
+  },
+  "stats": [
+    {"label": "Risk Score",       "value": "...",      "color": "#ef4444"},
+    {"label": "Predicted LOS",    "value": "... days", "color": "#f59e0b"},
+    {"label": "Readmission Risk", "value": "...%",     "color": "#06b6d4"},
+    {"label": "Recovery ETA",     "value": "...",      "color": "#10b981"}
+  ]
+}`;
+
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1500,
+          messages: [{ role:"user", content:prompt }]
+        })
+      });
+
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      const text = data.content?.map(b => b.text||"").join("") || "";
+      twinData = JSON.parse(text.replace(/```json|```/g,"").trim());
+
+    } catch (e) {
+      clearInterval(loadInterval);
+      document.getElementById("dtLoading").style.display = "none";
+      document.getElementById("dtError").textContent = "❌ API Error: " + e.message + " — Try Demo Mode instead.";
+      document.getElementById("dtError").style.display = "block";
+      return;
+    }
+
+  } else {
+    // ── DEMO MODE: built-in deterministic model ──
+    await new Promise(r => setTimeout(r, 2200)); // simulate loading delay
+    twinData = generateDemoTwin(name, age, gender, syms, hr, sbp, dbp, temp, spo2, glucose, bmi, crp, scenario);
+  }
+
+  clearInterval(loadInterval);
+  renderTwin(twinData, name, age, gender, scenarioLabels[scenario]);
+}
+
+/**
+ * Built-in demo twin engine — no API key required.
+ * Generates a realistic digital twin model from raw inputs using
+ * heuristic rules derived from clinical patterns.
+ *
+ * @returns {Object} twinData — same schema as the Claude API JSON response
+ */
+function generateDemoTwin(name, age, gender, syms, hr, sbp, dbp, temp, spo2, glucose, bmi, crp, scenario) {
+  const hasCardiac = syms.includes("chest pain") || syms.includes("shortness of breath");
+  const hasFever   = syms.includes("fever") || parseFloat(temp) > 37.5;
+  const hasNeuro   = syms.includes("dizziness") || syms.includes("headache") || syms.includes("tremors");
+  const hrN  = parseInt(hr);
+  const sbpN = parseInt(sbp);
+  const spo2N = parseInt(spo2);
+
+  const risk = hasCardiac ? "High" : (hasFever && sbpN > 140) ? "Moderate" : "Moderate";
+
+  return {
+    overallRisk:      risk,
+    primaryCondition: hasCardiac ? "Acute Cardiovascular Stress"
+                    : hasFever   ? "Systemic Inflammatory Response"
+                    : hasNeuro   ? "Neurological Dysfunction"
+                    : "Multi-Symptom Syndrome",
+
+    // Organ health scores (0–100) and status flags
+    organSystems: [
+      { name:"Cardiovascular", health: hasCardiac?54:hrN>100?68:85, status:hasCardiac?"Stressed":hrN>100?"Borderline":"Normal", icon:"❤️" },
+      { name:"Respiratory",    health: spo2N<94?58:syms.includes("cough")?72:91, status:spo2N<94?"Critical":syms.includes("cough")?"Borderline":"Normal", icon:"🫁" },
+      { name:"Neurological",   health: hasNeuro?63:89, status:hasNeuro?"Borderline":"Normal", icon:"🧠" },
+      { name:"Hepatic",        health: (syms.includes("nausea")||syms.includes("vomiting"))?71:88, status:syms.includes("nausea")?"Borderline":"Normal", icon:"🫀" },
+      { name:"Renal",          health: parseInt(glucose)>140?70:87, status:parseInt(glucose)>140?"Borderline":"Normal", icon:"🫘" },
+      { name:"Immune",         health: hasFever?60:parseFloat(crp)>10?65:78, status:hasFever?"Stressed":parseFloat(crp)>10?"Borderline":"Normal", icon:"🛡️" }
+    ],
+
+    // Vital sign readings with clinical flags
+    vitalStatus: [
+      { label:"Heart Rate",    value:hr+" bpm",        flag:hrN>100?"High":hrN<60?"Low":"Normal" },
+      { label:"Blood Pressure",value:sbp+"/"+dbp+" mmHg", flag:sbpN>140?"High":sbpN<90?"Low":"Normal" },
+      { label:"Temperature",   value:temp+"°C",        flag:parseFloat(temp)>38?"High":parseFloat(temp)<36?"Low":"Normal" },
+      { label:"SpO2",          value:spo2+"%",         flag:spo2N<94?"Critical":spo2N<97?"Low":"Normal" },
+      { label:"Blood Glucose", value:glucose+" mg/dL", flag:parseInt(glucose)>140?"High":parseInt(glucose)<70?"Low":"Normal" },
+      { label:"CRP",           value:crp+" mg/L",      flag:parseFloat(crp)>10?"High":parseFloat(crp)>5?"Borderline":"Normal" }
+    ],
+
+    // 90-day projected event timeline
+    timeline: [
+      { day:"Day 0",  event:"Digital twin initialized. Baseline vitals captured and organ model calibrated.", severity:"info" },
+      { day:"Day 14", event: hasCardiac
+          ? "Cardiopulmonary stress indicators stabilizing with rest and monitoring."
+          : "Early treatment response observed — inflammation markers trending down.",
+        severity:"warning" },
+      { day:"Day 30", event: hasFever
+          ? "Fever resolved. CRP normalizing. Patient showing recovery trajectory."
+          : "Mid-simulation checkpoint — vitals within acceptable range.",
+        severity:"success" },
+      { day:"Day 60", event: (risk==="High"
+          ? "Cardiac rehab recommended if not already initiated."
+          : "Lifestyle adjustments showing measurable impact."),
+        severity: risk==="High"?"warning":"info" },
+      { day:"Day 90", event: (risk==="High"
+          ? "End of simulation. Follow-up echocardiogram advised. Risk score projected at Moderate if adherent."
+          : "End of simulation. Patient projected to return to baseline health. Preventive care advised."),
+        severity:"success" }
+    ],
+
+    // Clinical narrative paragraph
+    narrative: `The digital twin for ${name} (${age}y ${gender}) was constructed using ${syms.length} symptom vectors and baseline vitals. The simulation identified ${risk==="High"?"elevated cardiovascular and respiratory stress":"moderate systemic involvement"} as the primary physiological signature. Under the ${scenario} scenario, the model projects ${risk==="High"?"a cautious recovery trajectory with a 60-day stabilization window, provided clinical interventions are initiated promptly":"a favourable 90-day outlook with adherence to recommended lifestyle and pharmacological adjustments"}. Organ system cross-talk analysis flagged the ${hasCardiac?"cardiovascular–respiratory axis":hasFever?"immune–hepatic interface":"neuro–cardiovascular pathway"} as the highest-priority monitoring domain.`,
+
+    // 4 actionable clinical recommendations
+    recommendations: [
+      hasCardiac  ? "🫀 Initiate ECG monitoring and troponin assay immediately"   : "🩺 Schedule comprehensive metabolic panel within 48 hours",
+      hasFever    ? "🌡️ Administer antipyretics; blood cultures if temp > 39°C"   : "💊 Review current medications for interaction potential",
+      spo2N < 94  ? "🫁 Supplemental O₂ therapy; consider chest X-ray"            : "🏃 Prescribe graduated aerobic exercise program post-stabilization",
+      "📋 Schedule 14-day follow-up to re-run digital twin and compare trajectories"
+    ],
+
+    // Projected vital trends over 7 time points (Day 0–90)
+    projectedTrends: {
+      labels:     ["Day 0","Day 15","Day 30","Day 45","Day 60","Day 75","Day 90"],
+      heartRate:  [hrN, hrN+3,  hrN-5,  hrN-8,  hrN-10, hrN-9,  hrN-8 ].map(v => Math.max(55, v)),
+      systolicBP: [sbpN,sbpN+4, sbpN-6, sbpN-9, sbpN-11,sbpN-10,sbpN-9].map(v => Math.max(90, v)),
+      spo2:       [spo2N, spo2N-1, spo2N+1, spo2N+1, spo2N+2, spo2N+2, Math.min(99, spo2N+2)]
+    },
+
+    // Summary KPI stats
+    stats: [
+      { label:"Risk Score",       value: risk==="High"?"7.4/10":risk==="Moderate"?"4.8/10":"2.1/10",  color: risk==="High"?"#ef4444":risk==="Moderate"?"#f59e0b":"#22c55e" },
+      { label:"Predicted LOS",    value: hasCardiac?"4–6 days":hasFever?"2–3 days":"1–2 days",         color:"#f59e0b" },
+      { label:"Readmission Risk", value: risk==="High"?"28%":risk==="Moderate"?"14%":"6%",             color:"#06b6d4" },
+      { label:"Recovery ETA",     value: hasCardiac?"~60 days":hasFever?"~21 days":"~14 days",         color:"#10b981" }
+    ]
+  };
+}
+
+/** Chart.js instance for the Digital Twin vital trend — stored so we can destroy before re-render */
+let dtChart = null;
+
+/**
+ * Render all Digital Twin output sections from a twinData object.
+ * Called after both API mode and demo mode complete.
+ */
+function renderTwin(data, name, age, gender, scenarioLabel) {
+  document.getElementById("dtLoading").style.display = "none";
+  document.getElementById("dtOutput").style.display  = "block";
+
+  // ── Twin identity header ──
+  document.getElementById("dtTwinName").textContent = "🧬 " + name + " — Digital Twin";
+  document.getElementById("dtTwinMeta").textContent = `${age}y • ${gender} • Scenario: ${scenarioLabel}`;
+
+  // ── Risk badges ──
+  const riskColor = { Low:"#22c55e", Moderate:"#f59e0b", High:"#ef4444", Critical:"#ef4444" };
+  const rc = riskColor[data.overallRisk] || "#94a3b8";
+  document.getElementById("dtRiskBadges").innerHTML = `
+    <span style="background:${rc}22;color:${rc};border:1px solid ${rc}55;padding:6px 16px;border-radius:8px;font-weight:800;font-size:13px">${data.overallRisk} Risk</span>
+    <span style="background:#7c3aed22;color:#a78bfa;border:1px solid #7c3aed55;padding:6px 16px;border-radius:8px;font-weight:700;font-size:12px">🔬 ${data.primaryCondition}</span>`;
+
+  // ── KPI stat cards ──
+  document.getElementById("dtStatCards").innerHTML = (data.stats||[]).map(s =>
+    `<div class="dt-stat" style="border-top:3px solid ${s.color}">
+      <div style="font-size:20px;font-weight:800;color:${s.color};margin:6px 0">${s.value}</div>
+      <div style="color:#64748b;font-size:12px">${s.label}</div>
+    </div>`
+  ).join("");
+
+  // ── Vital status rows ──
+  const flagColors = { Normal:"#22c55e", High:"#ef4444", Low:"#f97316", Critical:"#ef4444", Borderline:"#f59e0b" };
+  document.getElementById("dtVitalsDisplay").innerHTML = (data.vitalStatus||[]).map(v => {
+    const fc = flagColors[v.flag] || "#94a3b8";
+    return `<div class="dt-vital">
+      <span style="color:#94a3b8;font-size:13px">${v.label}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="color:#f1f5f9;font-weight:700">${v.value}</span>
+        <span class="dt-badge" style="background:${fc}22;color:${fc}">${v.flag}</span>
+      </div>
+    </div>`;
+  }).join("");
+
+  // ── Organ system health cards ──
+  document.getElementById("dtOrganGrid").innerHTML = (data.organSystems||[]).map(o => {
+    const hc = o.health>=80?"#22c55e":o.health>=60?"#f59e0b":"#ef4444";
+    return `<div class="organ-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:18px">${o.icon}</span>
+        <span style="color:${hc};font-weight:800;font-size:14px">${o.health}%</span>
+      </div>
+      <div style="color:#f1f5f9;font-size:11px;font-weight:600;margin-bottom:6px">${o.name}</div>
+      <div style="height:4px;background:#334155;border-radius:2px">
+        <div style="height:100%;width:${o.health}%;background:${hc};border-radius:2px;transition:width .8s"></div>
+      </div>
+      <div style="color:${hc};font-size:10px;margin-top:4px">${o.status}</div>
+    </div>`;
+  }).join("");
+
+  // ── Simulation timeline ──
+  const sevColor = { info:"#06b6d4", warning:"#f59e0b", danger:"#ef4444", success:"#22c55e" };
+  document.getElementById("dtTimeline").innerHTML = (data.timeline||[]).map(t => {
+    const sc2 = sevColor[t.severity] || "#94a3b8";
+    return `<div class="dt-timeline-item">
+      <div class="dt-timeline-dot" style="background:${sc2}"></div>
+      <div>
+        <div style="color:${sc2};font-size:11px;font-weight:700">${t.day}</div>
+        <div style="color:#94a3b8;font-size:12px;margin-top:2px">${t.event}</div>
+      </div>
+    </div>`;
+  }).join("");
+
+  // ── AI narrative ──
+  document.getElementById("dtNarrative").innerHTML = data.narrative || "No narrative available.";
+
+  // ── Clinical recommendations ──
+  document.getElementById("dtRecommendations").innerHTML = (data.recommendations||[]).map(r =>
+    `<div style="background:#0f172a;border-left:3px solid #10b981;border-radius:8px;padding:12px;color:#94a3b8;font-size:13px;line-height:1.5">${r}</div>`
+  ).join("");
+
+  // ── 90-day vital trend line chart ──
+  if (dtChart) { dtChart.destroy(); dtChart = null; }
+  const td = data.projectedTrends;
+  dtChart = new Chart(document.getElementById("dtTrendChart"), {
+    type: "line",
+    data: {
+      labels: td.labels,
+      datasets: [
+        { label:"Heart Rate (bpm)",   data:td.heartRate,  borderColor:"#ef4444", backgroundColor:"#ef444415", fill:true, tension:0.4, pointRadius:4 },
+        { label:"Systolic BP (mmHg)", data:td.systolicBP, borderColor:"#f59e0b", backgroundColor:"#f59e0b15", fill:true, tension:0.4, pointRadius:4 },
+        { label:"SpO2 (%)",           data:td.spo2,       borderColor:"#06b6d4", backgroundColor:"#06b6d415", fill:true, tension:0.4, pointRadius:4 }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend:{ labels:CLEG }, tooltip:CTIP },
+      scales: {
+        x: { ticks:{ color:"#64748b" }, grid:CGRID },
+        y: { ticks:{ color:"#64748b" }, grid:CGRID }
+      }
+    }
+  });
+}
+
+/**
+ * Quick-demo function — pre-fills Ravi Kumar (cardiac patient) and
+ * immediately runs the Digital Twin simulation in demo mode.
+ */
+function loadDemoTwin() {
+  document.getElementById("dtCustomName").value = "Ravi Kumar";
+  document.getElementById("dtAge").value         = 58;
+  document.getElementById("dtGender").value      = "Male";
+  dtSelSyms = ["chest pain","shortness of breath","sweating"];
+  buildDtPills();
+  autofillVitals(dtSelSyms, 58);
+  document.getElementById("dtScenario").value = "progression";
+  runDigitalTwin();
+}
+
+</script>
+</body>
+</html>
